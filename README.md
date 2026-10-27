@@ -23,7 +23,11 @@
 
 ## 接口
 
-除 `/healthz`、`/readyz` 外都需要 `Authorization: Bearer <API_KEYS 中任一>`。错误统一为 `{"error":{"code","message","retryable"}}`。所有接口都接受 `?workspace=`。
+除 `/healthz`、`/readyz`、`/version` 外都需要 `Authorization: Bearer <API_KEYS 中任一>`。错误统一为 `{"error":{"code","message","retryable"}}`。所有接口都接受 `?workspace=`。
+
+### `GET /version`、`GET /healthz`
+
+这两个接口不需要认证。`/version` 返回 `{name, version, commit, commitTime, lodyCliVersion}`，`/healthz` 返回 `{ok, version, commit}`。`commit` 和 `commitTime` 由 CI 在构建镜像时写入（见下文「镜像」）；本地构建时为 `null`。
 
 ### `GET /v1/sessions`
 
@@ -108,6 +112,19 @@ pnpm build && API_KEYS=... LODY_CLI_API_KEY=... LODY_WORKSPACE=... pnpm start
 本机 Node 版本不够时，直接用镜像运行：
 
 ## 镜像
+
+`.github/workflows/docker.yml` 与 hatch（`ImSingee/my-space`）的镜像流程一致：
+
+- **触发条件**：push 到 `main`/`master`、push `v*` tag、针对 `main`/`master` 的 PR，以及手动触发（`workflow_dispatch`）。
+- **镜像地址**：`ghcr.io/<owner>/<repo>`，即 `ghcr.io/imsingee/lody-api`，只构建 `linux/amd64`。
+- **tag 规则**：每次都会打短 commit sha。另外：
+  - push 分支：打分支名，如 `main`。
+  - push `v1.2.3` 这类 tag：打 `1.2.3`、`1.2` 和 `latest`。只有非预发布版本才会打 `latest`，推送 `main` 不会。
+  - PR：打 `pr-<n>`。
+- **PR**：来自 fork 或 dependabot 的 PR 只构建不推送，其余 PR 会推送 `pr-<n>`。认证只用内置的 `GITHUB_TOKEN`。
+- **版本信息**：CI 用 `git rev-parse HEAD` 和 `git show -s --format=%cI HEAD` 取得 commit sha 和提交时间，通过 build-arg `LODY_API_BUILD_COMMIT` / `LODY_API_BUILD_COMMIT_TIME` 传入镜像。Dockerfile 在运行层把它们转成同名环境变量，由 `/version` 和 `/healthz` 返回。
+
+本地构建：
 
 ```sh
 docker build -t lody-api .

@@ -42,6 +42,13 @@ function setup() {
   const tracker = { track: vi.fn(), waitForTerminal: vi.fn(async () => {}), fetchReplyText: vi.fn(async () => 'pong') };
   const readiness = { check: vi.fn(async () => ({ ready: true as const, checkedAt: 'now', workspaces: [] })) };
   const app = createApp({
+    build: {
+      name: 'lody-api',
+      version: '0.1.0',
+      commit: 'abc123def456',
+      commitTime: '2026-10-27T09:00:00+00:00',
+      lodyCliVersion: '0.108.1',
+    },
     apiKeys: [KEY, 'second-key-0123456789'],
     defaultWorkspace: 'team',
     sessions: new SessionListService(client, { ttlMs: 0, maxEntries: 4 }),
@@ -59,7 +66,9 @@ function setup() {
 describe('auth', () => {
   it('health checks need no key', async () => {
     const { app, readiness } = setup();
-    expect((await app.request('/healthz')).status).toBe(200);
+    const health = await app.request('/healthz');
+    expect(health.status).toBe(200);
+    expect(await health.json()).toEqual({ ok: true, version: '0.1.0', commit: 'abc123def456' });
     expect((await app.request('/readyz')).status).toBe(200);
     readiness.check.mockResolvedValueOnce({
       ready: false,
@@ -67,6 +76,18 @@ describe('auth', () => {
       error: { code: 'lody_auth_failed', message: 'x' },
     } as never);
     expect((await app.request('/readyz')).status).toBe(503);
+  });
+
+  it('/version reports the build without a key', async () => {
+    const res = await setup().app.request('/version');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      name: 'lody-api',
+      version: '0.1.0',
+      commit: 'abc123def456',
+      commitTime: '2026-10-27T09:00:00+00:00',
+      lodyCliVersion: '0.108.1',
+    });
   });
 
   it.each([

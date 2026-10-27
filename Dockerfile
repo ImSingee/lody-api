@@ -41,6 +41,12 @@ USER node
 # on a persistent volume so restarts neither re-sync everything nor lose turns.
 VOLUME ["/data"]
 EXPOSE 8080
+# Source revision passed by CI; served by GET /version and /healthz. Declared
+# last so a new commit only invalidates these metadata-only layers.
+ARG LODY_API_BUILD_COMMIT=
+ARG LODY_API_BUILD_COMMIT_TIME=
+ENV LODY_API_BUILD_COMMIT=${LODY_API_BUILD_COMMIT} \
+    LODY_API_BUILD_COMMIT_TIME=${LODY_API_BUILD_COMMIT_TIME}
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 ENTRYPOINT ["tini", "-g", "--", "/usr/local/bin/entrypoint.sh"]

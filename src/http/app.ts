@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
+import type { BuildInfo } from '../build-info.js';
 import { ApiError, toApiError } from '../errors.js';
 import { assertId } from '../lody/args.js';
 import type { ReadyState } from '../lody/auth.js';
@@ -13,6 +14,7 @@ import type { MessageService } from '../turns/message-service.js';
 import { turnToJson } from '../turns/types.js';
 
 export type AppDeps = {
+  build: BuildInfo;
   apiKeys: string[];
   defaultWorkspace: string | undefined;
   sessions: SessionListService;
@@ -119,7 +121,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
     });
   });
 
-  app.get('/healthz', (c) => c.json({ ok: true }));
+  app.get('/healthz', (c) => c.json({ ok: true, version: deps.build.version, commit: deps.build.commit }));
+  app.get('/version', (c) => c.json(deps.build));
   app.get('/readyz', async (c) => {
     const state = await deps.readiness.check();
     return c.json(state, state.ready ? 200 : 503);
