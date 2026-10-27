@@ -98,6 +98,19 @@
 
 `session_not_found`、`session_archived`、`machine_access_denied`、`machine_offline` 这几个错误都发生在 CLI 写入消息之前，所以返回这些错误时一定没有发出任何消息，可以放心重试。
 
+## 部署（docker compose）
+
+```sh
+cp .env.example .env    # 填 API_KEYS、LODY_CLI_API_KEY，多 workspace 时还要填 LODY_WORKSPACE
+docker compose up -d
+curl -s http://127.0.0.1:8080/readyz    # ready:true 即登录成功、能访问 Lody
+```
+
+- **镜像版本**：默认用 `ghcr.io/imsingee/lody-api:main`；要固定版本，就在 `.env` 里把 `LODY_API_TAG` 设为短 sha 或版本号。升级时执行 `docker compose pull && docker compose up -d`。
+- **端口绑定**：默认只绑在 `127.0.0.1`。服务是明文 HTTP，对外提供时请在前面加一层 TLS 反向代理；只有在可信网络里才把 `LODY_API_BIND` 改成 `0.0.0.0`。
+- **数据卷**：数据存在 named volume `lody-api-data` 里。`docker compose down` 会保留它；`down -v` 会把凭据、缓存和 turn 记录一起删掉。
+- **shell 变量优先**：compose 插值时，当前 shell 的环境变量优先于 `.env`。所以 compose 不透传代理变量，否则宿主机上指向 `127.0.0.1` 的代理会被带进容器。确实需要代理的话，在 `compose.yaml` 的 `environment` 里显式写上代理地址。
+
 ## 本地开发
 
 lody 要求 Node ≥ 24.22.1（或 22.23.4 / 26.12.1），并且依赖 glibc。

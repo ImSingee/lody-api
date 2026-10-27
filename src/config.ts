@@ -51,7 +51,10 @@ const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = ConfigSchema.safeParse(env);
+  // An empty variable means "not set": compose's `${VAR:-}` passes "" for unset
+  // optional settings, which must fall back to the default rather than fail.
+  const present = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined && value !== ''));
+  const parsed = ConfigSchema.safeParse(present);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)

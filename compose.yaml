@@ -1,0 +1,35 @@
+# Deploy: cp .env.example .env, fill it in, then `docker compose up -d`.
+# Upgrade: change LODY_API_TAG (or keep `main`) and `docker compose pull && docker compose up -d`.
+name: lody-api
+
+services:
+  lody-api:
+    image: ghcr.io/imsingee/lody-api:${LODY_API_TAG:-main}
+    restart: unless-stopped
+    ports:
+      # Plain HTTP with bearer keys: bind to loopback and put TLS in front
+      # (reverse proxy); set LODY_API_BIND=0.0.0.0 only on a trusted network.
+      - '${LODY_API_BIND:-127.0.0.1}:${LODY_API_PORT:-8080}:8080'
+    environment:
+      API_KEYS: ${API_KEYS:?set API_KEYS in .env}
+      LODY_CLI_API_KEY: ${LODY_CLI_API_KEY:?set LODY_CLI_API_KEY in .env}
+      LODY_WORKSPACE: ${LODY_WORKSPACE:-}
+      LODY_MACHINE_NAME: ${LODY_MACHINE_NAME:-lody-api}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LODY_CLI_CONCURRENCY: ${LODY_CLI_CONCURRENCY:-}
+      SESSION_LIST_CACHE_TTL_MS: ${SESSION_LIST_CACHE_TTL_MS:-}
+      SYNC_WAIT_MAX_SECONDS: ${SYNC_WAIT_MAX_SECONDS:-}
+    volumes:
+      # lody credentials, Loro workspace cache and turn records. Keeping it
+      # avoids a full workspace re-sync and resumes tracking unfinished turns.
+      - lody-api-data:/data
+    # The server drains for up to 30s on SIGTERM before killing CLI children.
+    stop_grace_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+
+volumes:
+  lody-api-data:
